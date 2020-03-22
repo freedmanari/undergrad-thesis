@@ -1,14 +1,15 @@
 data {
-  int<lower=1> N;         // number of caterpillars
+  int<lower=1> N;         // number of treatments
   int<lower=1> J;         // number of strains
   int<lower=1,upper=J> K; // number of capsids
   
   int<lower=1,upper=J> sid[N]; // strain indices
   int<lower=1,upper=K> cid[J]; // capsid indices
   
-  int<lower=0> x_obs[N];          // dose in ob/uL  
-  int<lower=0,upper=1> x_tree[N]; // tree_sp
-  int<lower=0,upper=1> y[N];      // dependent variables 
+  int<lower=0> x_obs[N];           // dose in ob/uL  
+  int<lower=0,upper=1> x_tree[N];  // tree_sp
+  int<lower=0,upper=60> y[N];      // dependent variable, number of virus-killed
+  int<lower=0,upper=60> total[N];   //total caterpillars in treatment
 }
 
 parameters{
@@ -30,7 +31,7 @@ transformed parameters {
   vector[J] beta_obs;
   vector[J] beta_tree;
   
-  vector[N] y_hat; //predicted y
+  vector[N] theta; //predicted proportion virus-killed
   
   for(j in 1:J) {
     alpha[j] = mu_alpha[j] + sigma_alpha[cid[j]]*raw_alpha[j];
@@ -39,7 +40,7 @@ transformed parameters {
   }
   
   for(n in 1:N) {
-    y_hat[n] = alpha[sid[n]] + beta_obs[sid[n]]*x_obs[n] + beta_tree[sid[n]]*x_tree[n];
+    theta[n] = alpha[sid[n]] + beta_obs[sid[n]]*x_obs[n] + beta_tree[sid[n]]*x_tree[n];
   }
 }
 
@@ -58,6 +59,6 @@ model {
   raw_beta_tree ~ normal(0,1);
   
   //likelihood
-  y ~ bernoulli_logit(y_hat);
+  y ~ binomial_logit(total, theta);
 }
 
