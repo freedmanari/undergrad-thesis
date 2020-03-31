@@ -11,6 +11,8 @@ data {
   int<lower=0> x[N];     // dose in ob/uL
   int<lower=0> y[N];     // dependent variable, number of virus-killed
   int<lower=0> total[N]; // total caterpillars in treatment
+  
+  
 }
 
 parameters{
@@ -25,16 +27,19 @@ transformed parameters {
   matrix[J,I] alpha;
   matrix[J,I] beta;
   
-  vector[N] theta; //predicted proportion virus-killed
+  vector[N] theta; //predicted proportion virus-killed on logit scale
+  vector[N] inv_logit_theta;
   
   for(j in 1:J) {
-    alpha[j] = raw_alpha[j] * sigma_alpha[cid[j]];
-    beta[j] = raw_beta[j] * sigma_beta[cid[j]];
+      alpha[j] = raw_alpha[j] * sigma_alpha[cid[j]];
+      beta[j] = raw_beta[j] * sigma_beta[cid[j]];
   }
   
   for(n in 1:N) {
     theta[n] = alpha[sid[n],tid[n]] + beta[sid[n],tid[n]]*x[n];
   }
+  
+  inv_logit_theta = inv_logit(theta);
 }
 
 model {
@@ -47,8 +52,14 @@ model {
     raw_beta[j] ~ normal(0,1);
   }
   
-  
+
   //likelihood
   y ~ binomial_logit(total, theta);
 }
 
+generated quantities {
+  vector[N] log_lik;
+  for (n in 1:N) {
+    log_lik[n] = binomial_logit_lpmf(y[n] | total[n], theta[n]);
+  }
+}

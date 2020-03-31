@@ -1,7 +1,6 @@
 library(tidyverse)
 setwd("~/Desktop/school/dwyer_research/SOK")
-SOK_data_w_control <- read.csv(file="DoseR_SOK_reformatted.csv",header=TRUE,sep=",")
-SOK_data <- SOK_data_w_control %>% filter(capsid != "none")
+SOK_data <- read.csv(file="SOK_reordered.csv",header=TRUE,sep=",")
 
 dose_var <- SOK_data$ob_count
 
@@ -89,7 +88,7 @@ m <- glm(dose_response ~ dose_var * capsid + tree_sp * capsid,
             family = "binomial", data = SOK_data, weights=total_n)
 
 summary(glm(dose_response ~ dose_var * capsid * tree_sp,
-            family = "binomial", data = SOK_data, weights=total_n))
+            family = "binomial", data = SOK_data, weights=total_n))$aic
 
 
 ggplot(data = SOK_data) + facet_wrap(~capsid) +

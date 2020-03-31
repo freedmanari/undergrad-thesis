@@ -1,13 +1,14 @@
 library(tidyverse)
 library(rstan)
-library(bayesplot)
-library(coda)
-library(loo)
+
+set.seed(682932)
+
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 
 setwd("~/Desktop/school/dwyer_research/undergrad-thesis")
-SOK_data_w_control <- read.csv(file="DoseR_SOK_reformatted.csv",
+SOK_data <- read.csv(file="SOK_reordered.csv",
                                header=TRUE, sep=",", stringsAsFactors=FALSE)
-SOK_data <- SOK_data_w_control %>% filter(capsid != "none")
 
 factor_to_int <- function(factor, col_name) {
   factors <- t(unique(SOK_data[col_name]))
@@ -40,7 +41,7 @@ m_hier <- stan(file="hier_model.stan",
                          tid=tid,sid=sid,cid=cid,
                          x=x,y=y,total=total),
                chains=4,
-               iter=2000,
+               iter=5000,
                control = list(adapt_delta=0.90, max_treedepth=15))
 
 ### save fit
@@ -52,6 +53,3 @@ saveFit <- function(fit_obj, fit_name) {
   return(fit)
 }
 fit <- saveFit(m_hier, "../stan_fits/fit_hier.rds")
-
-### load fit
-m_hier <- readRDS("../stan_fits/fit_hier.rds")
