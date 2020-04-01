@@ -84,8 +84,15 @@ summary(glm(dose_response ~ capsid + tree_sp,
 summary(glm(dose_response ~ dose_var + capsid + tree_sp,
             family = "binomial", data = SOK_data, weights=total_n))$aic
 
-m <- glm(dose_response ~ dose_var * capsid + tree_sp * capsid,
+best_model <- glm(dose_response ~ dose_var * capsid + tree_sp * capsid,
             family = "binomial", data = SOK_data, weights=total_n)
+
+summary(glm(dose_response ~ dose_var * capsid + dose_var * tree_sp,
+            family = "binomial", data = SOK_data, weights=total_n))$aic
+summary(glm(dose_response ~ tree_sp * capsid + dose_var * tree_sp,
+            family = "binomial", data = SOK_data, weights=total_n))$aic
+summary(glm(dose_response ~ dose_var * capsid + tree_sp * capsid + dose_var * tree_sp,
+            family = "binomial", data = SOK_data, weights=total_n))$aic
 
 summary(glm(dose_response ~ dose_var * capsid * tree_sp,
             family = "binomial", data = SOK_data, weights=total_n))$aic

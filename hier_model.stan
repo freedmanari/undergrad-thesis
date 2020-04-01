@@ -12,7 +12,11 @@ data {
   int<lower=0> y[N];     // dependent variable, number of virus-killed
   int<lower=0> total[N]; // total caterpillars in treatment
   
+  matrix[J,I] prior_mu_alpha;
+  matrix[J,I] prior_mu_beta;
   
+  vector<lower=0>[K] prior_sigma_alpha;
+  vector<lower=0>[K] prior_sigma_beta;
 }
 
 parameters{
@@ -31,12 +35,12 @@ transformed parameters {
   vector[N] inv_logit_theta;
   
   for(j in 1:J) {
-      alpha[j] = raw_alpha[j] * sigma_alpha[cid[j]];
-      beta[j] = raw_beta[j] * sigma_beta[cid[j]];
+      alpha[j] = prior_mu_alpha[j] + raw_alpha[j] * sigma_alpha[cid[j]];
+      beta[j] = prior_mu_beta[j] + raw_beta[j] * sigma_beta[cid[j]];
   }
   
   for(n in 1:N) {
-    theta[n] = alpha[sid[n],tid[n]] + beta[sid[n],tid[n]]*x[n];
+    theta[n] = alpha[sid[n],tid[n]] + beta[sid[n],tid[n]] * x[n];
   }
   
   inv_logit_theta = inv_logit(theta);
@@ -44,8 +48,8 @@ transformed parameters {
 
 model {
   //priors
-  sigma_alpha ~ cauchy(0,2.5);
-  sigma_beta ~ cauchy(0,2.5);
+  sigma_alpha ~ normal(prior_sigma_alpha, 3*prior_sigma_alpha);
+  sigma_beta ~ normal(prior_sigma_beta, 3*prior_sigma_beta);
   
   for (j in 1:J) {
     raw_alpha[j] ~ normal(0,1);

@@ -1,21 +1,24 @@
 # stan attempt (Sampling Through Adaptive Neighborhoods)
 
-library('rstan')
-library('tidyverse')
-library('shinystan')
-library('bayesplot')
-library('coda')
-library('loo')
-library('boot')
+library(rstan)
+library(tidyverse)
+library(shinystan)
+library(bayesplot)
+library(coda)
+library(loo)
+library(pracma)
 
 ### load data
 setwd("~/Desktop/school/dwyer_research/undergrad-thesis")
 SOK_data <- read.csv(file="SOK_reordered.csv",
-                               header=TRUE, sep=",", stringsAsFactors=FALSE)
+                     header=TRUE, sep=",", stringsAsFactors=FALSE)
 y <- SOK_data$dose_response
 
-### load fit
-fit_hier <- readRDS("../stan_fits/fit_hier.rds")
+### load fits
+informative_priors <- readRDS("../stan_fits/informative_priors.rds")
+no_means <- readRDS("../stan_fits/no_means.rds")
+
+fit_hier <- informative_priors
 
 # pulling out the fits
 # NUTS (the No-U-Turn Sampler) optimizes HMC adaptively
@@ -63,6 +66,12 @@ plot(fit_hier, pars = c("inv_logit_theta"), fill_color = "red", show_density=TRU
              size = 3) +
   geom_hline(yintercept=25)
 
+plot(fit_hier, pars = "sigma_alpha", show_density=TRUE)
+plot(fit_hier, pars = "sigma_beta", show_density=TRUE)
+
 # gets the log likelihood matrix out and computes the waic
-log_lik <- loo::extract_log_lik(fit_hier, parameter_name = "log_lik", merge_chains=TRUE)
-simple_waic <- loo::waic(log_lik)
+log_lik_informative_priors <- extract_log_lik(informative_priors, parameter_name = "log_lik", merge_chains=TRUE)
+log_lik_no_means <- extract_log_lik(no_means, parameter_name = "log_lik", merge_chains=TRUE)
+waic_informative_prios <- waic(log_lik_informative_priors)
+waic_no_means <- waic(log_lik_no_means)
+
