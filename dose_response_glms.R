@@ -195,21 +195,22 @@ SOK_data_grouped <- SOK_data %>%
 
 
 ggplot() +
-  geom_line(data = A13_predictions, aes(x=dose, y=prediction, color=tree_sp)) +
-  geom_point(data = SOK_data_grouped, aes(x=dose_var,y=dose_response, color=tree_sp)) +
+  geom_line(data = A13_predictions, aes(x=dose/1000, y=prediction, color=tree_sp)) +
+  geom_point(data = SOK_data_grouped, aes(x=dose_var/1000,y=dose_response, color=tree_sp)) +
   geom_errorbar(data=SOK_data_grouped,
-                width=100,
-                aes(x=dose_var,ymin=dose_response_lower,ymax=dose_response_upper,color=tree_sp))+
+                width=.15,
+                aes(x=dose_var/1000,ymin=dose_response_lower,ymax=dose_response_upper,color=tree_sp))+
   geom_errorbarh(data=SOK_data_grouped,
-                 width=.02,aes(y=dose_response,xmin=dose_lower,xmax=dose_upper,color=tree_sp))+
-  facet_wrap(~capsid) + xlab("Dose (µL virus)") + ylab("Proportion virus-killed") +
-  scale_x_continuous(limits = c(0,6000),expand = c(0,0),label=comma) +
-  scale_y_continuous(limits = c(0,1),expand = c(0,0),) +
-  scale_color_discrete(name = "Tree",labels = c("GF", "DF")) +
+                 width=.02,aes(y=dose_response,xmin=dose_lower/1000,xmax=dose_upper/1000,color=tree_sp))+
+  facet_wrap(~capsid) + xlab("Dose (thousands of occlusion bodies)") + ylab("Proportion virus-killed") +
+  scale_x_continuous(limits = c(0,6),expand = c(0,0)) +
+  scale_y_continuous(limits = c(0,1),expand = c(0,0)) +
+  scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
   theme(text=element_text(size=12,family="Palatino"),
         strip.background = element_blank(),
-        panel.spacing= unit(2, "lines"),
-        plot.margin = margin(0,20,0,10))
+        panel.spacing= unit(1.5, "lines"),
+        plot.margin = margin(0,20,0,10),
+        legend.margin=margin(0,0,-10,0))
 
 
 
@@ -223,9 +224,30 @@ ggplot(data = SOK_data) + facet_wrap(~capsid) +
   ylab("Proportion virus-killed")
 
 #summary of tranmission rates
-ggplot(data = SOK_data) + facet_wrap(~strain,nrow=2) +
-  aes(x=ob_count,y=dose_response, color=tree_sp) + geom_line()
+SOK_data_grouped_isolate <- SOK_data %>%
+  group_by(strain,density,tree_sp) %>%
+  summarise(total_virus=sum(total_virus),
+            total_n=sum(total_n),
+            dose_response=sum(total_virus)/sum(total_n),
+            dose_response_lower=binom.confint(total_virus,total_n,method="wilson")$lower,
+            dose_response_upper=binom.confint(total_virus,total_n,method="wilson")$upper,
+            dose_var=mean(ob_count))
 
+
+ggplot(data = SOK_data_grouped_isolate) +
+  facet_wrap(~strain,nrow=2,scales="free_x") +
+  aes(x=dose_var/1000,y=dose_response, color=tree_sp) +
+  geom_errorbar(width=.3,
+                aes(x=dose_var/1000,ymin=dose_response_lower,ymax=dose_response_upper,color=tree_sp))+
+  geom_line() + geom_point() +
+  scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
+  scale_x_continuous(limits=c(0,6),expand = c(0,0)) +
+  scale_y_continuous(limits = c(0,1),expand = c(0,0)) +
+  xlab("Dose (thousands of occlusion bodies)") + ylab("Proportion virus-killed") +
+  theme(text=element_text(size=12,family="Palatino"),
+        strip.background = element_blank(),
+        panel.spacing= unit(1.5, "lines"),
+        plot.margin = margin(0,20,0,10))
 
 
 

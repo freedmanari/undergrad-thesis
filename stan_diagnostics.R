@@ -46,9 +46,64 @@ log_posterior_fit_hier <- log_posterior(fit_hier)
 # to make sure nothing is being wonky
 mcmc_trace(posterior_fit_hier, regex="alpha",np=nuts_params_fit_hier)
 mcmc_trace(posterior_fit_hier, regex="beta",np=nuts_params_fit_hier)
-mcmc_dens(posterior_fit_hier, regex="alpha")
-mcmc_dens(posterior_fit_hier, regex="beta")
-mcmc_dens(posterior_fit_hier, regex="sigma")
+
+
+
+mcmc_dens(posterior_fit_hier, regex="^alpha.{2,}1",facet_args=list(ncol=8)) +
+  scale_x_continuous(limits=c(-6,2),expand = c(0,0)) +
+  theme(text=element_text(size=11,family="Palatino"),
+        panel.spacing= unit(1.2, "lines")) +
+  facet_text(FALSE)
+mcmc_dens(posterior_fit_hier, regex="^alpha.{2,}2",facet_args=list(ncol=8)) +
+  scale_x_continuous(limits=c(-6,2),expand = c(0,0)) +
+  theme(text=element_text(size=11,family="Palatino"),
+        panel.spacing= unit(1.2, "lines")) +
+  facet_text(FALSE)
+
+mcmc_dens(posterior_fit_hier, regex="^beta.{2,}1",facet_args=list(ncol=8)) +
+  scale_x_continuous(limits=c(-.0004,.0006),expand = c(0,0),
+                     breaks=c(-.0004,-.0002,0,.0002,.0004,.0006),
+                     labels=c("-.0004","","0","",".0004","")) +
+  theme(text=element_text(size=11,family="Palatino"),
+        strip.background = element_blank(),
+        panel.spacing= unit(1.2, "lines")) +
+  facet_text(FALSE)
+mcmc_dens(posterior_fit_hier, regex="^beta.{2,}2",facet_args=list(ncol=8)) +
+  scale_x_continuous(limits=c(-.0004,.0006),expand = c(0,0),
+                     breaks=c(-.0004,-.0002,0,.0002,.0004,.0006),
+                     labels=c("-.0004","","0","",".0004","")) +
+  theme(text=element_text(size=11,family="Palatino"),
+        strip.background = element_blank(),
+        panel.spacing= unit(1.2, "lines")) +
+  facet_text(FALSE)
+
+
+mcmc_dens(posterior_fit_hier, regex="sigma_alpha") +
+  scale_x_continuous(limits=c(0,3),expand = c(0,0)) +
+  theme(text=element_text(size=11,family="Palatino"),
+        panel.spacing= unit(1.2, "lines"),
+        plot.margin=margin(0,20,0,10)) +
+  facet_text(FALSE)
+mcmc_dens(posterior_fit_hier, regex="sigma_beta") +
+  scale_x_continuous(limits=c(0,.0006),breaks=c(0,.0002,.0004,.0006),
+                     labels=c("0",".0002",".0004",".0006"),expand = c(0,0)) +
+  theme(text=element_text(size=11,family="Palatino"),
+        panel.spacing= unit(1.2, "lines"),
+        plot.margin=margin(0,20,0,10)) +
+  facet_text(FALSE)
+
+
+
+labs <- c("α_COL,GR","α_CUB,GR","α_LOV,GR","α_LST,GR",
+               "α_DRY,GR","α_KLP,GR","α_TAM,GR","α_TMB,GR",
+               "α_COL,DO","α_CUB,DO","α_LOV,DO","α_LST,DO",
+               "α_DRY,DO","α_KLP,DO","α_TAM,DO","α_TMB,DO")
+names(labs) <- c("alpha[1,1]","alpha[2,1]","alpha[3,1]","alpha[4,1]",
+                      "alpha[5,1]","alpha[6,1]","alpha[7,1]","alpha[8,1]",
+                      "alpha[1,2]","alpha[2,2]","alpha[3,2]","alpha[4,2]",
+                      "alpha[5,2]","alpha[6,2]","alpha[7,2]","alpha[8,2]")
+
+
 
 # looks at the divergence in the plots
 color_scheme_set("red")

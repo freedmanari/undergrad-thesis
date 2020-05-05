@@ -158,7 +158,7 @@ waic_no_tree_or_strain <- waic(extract_log_lik(no_tree_or_strain))
 
 
 
-## pooled_means
+## complete_hierarchy
 
 glm_SNPV_first <- glm(dose_response ~ ob_count * capsid * tree_sp,
                       family = "binomial", data = data_SNPV_first, weights=total_n)
@@ -178,16 +178,16 @@ prior_sigma_alpha <- c(Norm(coef(summary(glm_SNPV_first))[c("(Intercept)","tree_
 prior_sigma_beta <- c(Norm(coef(summary(glm_SNPV_first))[c("ob_count","ob_count:tree_spGR"), "Std. Error"]),
                       Norm(coef(summary(glm_MNPV_first))[c("ob_count","ob_count:tree_spGR"), "Std. Error"]))
 
-pooled_means <- stan(file="pooled_means.stan",
-                        data=list(N=N,H=H,I=I,J=J,
-                                  cid=cid,sid=sid,tid=tid,
-                                  x=x,y=y,total=total,
-                                  prior_mu_alpha=prior_mu_alpha,prior_mu_beta=prior_mu_beta,
-                                  prior_sigma_alpha=prior_sigma_alpha,prior_sigma_beta=prior_sigma_beta),
-                        chains=4,
-                        iter=5000,
-                        control = list(adapt_delta=0.99, max_treedepth=25))
-waic_pooled_means <- waic(extract_log_lik(pooled_means))
+complete_hierarchy <- stan(file="complete_hierarchy.stan",
+                           data=list(N=N,H=H,I=I,J=J,
+                                     cid=cid,sid=sid,tid=tid,
+                                     x=x,y=y,total=total,
+                                     prior_mu_alpha=prior_mu_alpha,prior_mu_beta=prior_mu_beta,
+                                     prior_sigma_alpha=prior_sigma_alpha,prior_sigma_beta=prior_sigma_beta),
+                           chains=4,
+                           iter=5000,
+                           control = list(adapt_delta=0.99, max_treedepth=25))
+waic_complete_hierarchy <- waic(extract_log_lik(complete_hierarchy))
 
 
 ## no_hierarchy
@@ -236,7 +236,7 @@ fit <- saveFit(tree_and_strain, "../stan_fits/tree_and_strain.rds")
 fit <- saveFit(tree_only, "../stan_fits/tree_only.rds")
 fit <- saveFit(strain_only, "../stan_fits/strain_only.rds")
 fit <- saveFit(no_tree_or_strain, "../stan_fits/no_tree_or_strain.rds")
-fit <- saveFit(pooled_means, "../stan_fits/pooled_means.rds")
+fit <- saveFit(complete_hierarchy, "../stan_fits/complete_hierarchy.rds")
 fit <- saveFit(no_hierarchy, "../stan_fits/no_hierarchy.rds")
 
 
