@@ -49,13 +49,19 @@ avg_SOK$tree_sp <- factor(avg_SOK$tree_sp, levels = c("GR","DO"))
 
 
 ggplot(data=avg_SOK) +
-  geom_point(aes(x=capsid,y=y,color=tree_sp)) +
-  geom_line(aes(x=capsid,y=y,color=tree_sp,group=tree_sp)) +
-  geom_errorbar(aes(x=capsid,ymin=ymin,ymax=ymax,color=tree_sp),width=.3) +
-  scale_color_discrete(name = "Tree",labels = c("GF", "DF")) +
-  xlab("Morphotype") +
+  geom_point(aes(x=tree_sp,y=y,color=tree_sp)) +
+  geom_line(aes(x=tree_sp,y=y,group = 1)) +
+  facet_wrap(~ capsid) +
+  geom_errorbar(aes(x=tree_sp,ymin=ymin,ymax=ymax,color=tree_sp),width=.3) +
+  scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
+  xlab("Tree species") +
   ylab("Average speed of kill (days)") +
-  theme(text=element_text(size=12,family="Palatino"))
+  theme(text=element_text(size=12,family="Palatino"),
+        strip.background = element_blank(),
+        panel.spacing= unit(1, "lines"),
+        plot.margin = margin(0,20,0,10),
+        legend.position = "none")
+
 
 #likelihood function
 

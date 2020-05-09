@@ -40,7 +40,7 @@ total <- SOK_data$total_n
 
 
 
-## tree_and_strain
+## morphotype_and_tree
 
 glm_SNPV_first <- glm(dose_response ~ ob_count * capsid * tree_sp,
                       family = "binomial", data = data_SNPV_first, weights=total_n)
@@ -60,7 +60,7 @@ prior_sigma_alpha <- c(Norm(coef(summary(glm_SNPV_first))[c("(Intercept)","tree_
 prior_sigma_beta <- c(Norm(coef(summary(glm_SNPV_first))[c("ob_count","ob_count:tree_spGR"), "Std. Error"]),
                       Norm(coef(summary(glm_MNPV_first))[c("ob_count","ob_count:tree_spGR"), "Std. Error"]))
 
-tree_and_strain <- stan(file="tree_and_strain.stan",
+morphotype_and_tree <- stan(file="morphotype_and_tree.stan",
                         data=list(N=N,H=H,I=I,J=J,
                                   cid=cid,sid=sid,tid=tid,
                                   x=x,y=y,total=total,
@@ -69,7 +69,6 @@ tree_and_strain <- stan(file="tree_and_strain.stan",
                         chains=4,
                         iter=5000,
                         control = list(adapt_delta=0.99, max_treedepth=25))
-waic_tree_and_strain <- waic(extract_log_lik(tree_and_strain))
 
 
 
@@ -91,19 +90,18 @@ prior_sigma_alpha <- Norm(coef(summary(glm_SNPV_first))[c("(Intercept)","tree_sp
 prior_sigma_beta <- Norm(coef(summary(glm_SNPV_first))[c("ob_count","ob_count:tree_spGR"), "Std. Error"])
 
 tree_only <- stan(file="tree_only.stan",
-                  data=list(N=N,J=J,
-                            tid=tid,
+                  data=list(N=N,I=I,J=J,
+                            sid=sid,tid=tid,
                             x=x,y=y,total=total,
                             prior_mu_alpha=prior_mu_alpha,prior_mu_beta=prior_mu_beta,
                             prior_sigma_alpha=prior_sigma_alpha,prior_sigma_beta=prior_sigma_beta),
                   chains=4,
                   iter=5000,
                   control = list(adapt_delta=0.99, max_treedepth=25))
-waic_tree_only <- waic(extract_log_lik(tree_only))
 
 
 
-## strain_only
+## morphotype_only
 
 glm_SNPV_first <- glm(dose_response ~ ob_count * capsid,
                       family = "binomial", data = data_SNPV_first, weights=total_n)
@@ -123,7 +121,7 @@ prior_sigma_alpha <- c(coef(summary(glm_SNPV_first))["(Intercept)", "Std. Error"
 prior_sigma_beta <- c(coef(summary(glm_SNPV_first))["ob_count", "Std. Error"],
                       coef(summary(glm_MNPV_first))["ob_count", "Std. Error"])
 
-strain_only <- stan(file="strain_only.stan",
+morphotype_only <- stan(file="morphotype_only.stan",
                     data=list(N=N,H=H,I=I,
                               cid=cid,sid=sid,
                               x=x,y=y,total=total,
@@ -132,10 +130,9 @@ strain_only <- stan(file="strain_only.stan",
                     chains=4,
                     iter=5000,
                     control = list(adapt_delta=0.99, max_treedepth=25))
-waic_strain_only <- waic(extract_log_lik(strain_only))
 
 
-## no_tree_or_strain
+## neither_morphotype_nor_tree
 
 glm_SNPV_first <- glm(dose_response ~ ob_count,
                       family = "binomial", data = data_SNPV_first, weights=total_n)
@@ -146,16 +143,31 @@ prior_mu_beta <- coef(summary(glm_SNPV_first))["ob_count", "Estimate"]
 prior_sigma_alpha <- coef(summary(glm_SNPV_first))["(Intercept)", "Std. Error"]
 prior_sigma_beta <- coef(summary(glm_SNPV_first))["ob_count", "Std. Error"]
 
-no_tree_or_strain <- stan(file="no_tree_or_strain.stan",
-                          data=list(N=N,
-                                    x=x,y=y,total=total,
-                                    prior_mu_alpha=prior_mu_alpha,prior_mu_beta=prior_mu_beta,
-                                    prior_sigma_alpha=prior_sigma_alpha,prior_sigma_beta=prior_sigma_beta),
-                          chains=4,
-                          iter=5000,
-                          control = list(adapt_delta=0.99, max_treedepth=25))
-waic_no_tree_or_strain <- waic(extract_log_lik(no_tree_or_strain))
 
+best_loo <- 10000000
+best_very_bad <- 100000
+for (k in 1:20) {
+  neither_morphotype_nor_tree <- stan(file="neither_morphotype_nor_tree.stan",
+                            data=list(N=N,I=I,
+                                      sid=sid,
+                                      x=x,y=y,total=total,
+                                      prior_mu_alpha=prior_mu_alpha,prior_mu_beta=prior_mu_beta,
+                                      prior_sigma_alpha=prior_sigma_alpha,prior_sigma_beta=prior_sigma_beta),
+                            chains=4,
+                            iter=5000,
+                            control = list(adapt_delta=0.99, max_treedepth=25))
+  very_bad <- sum(loo(neither_morphotype_nor_tree)$diagnostics[[1]]>=1)
+  l <- loo(neither_morphotype_nor_tree)$looic
+  if (very_bad < best_very_bad) {
+    best_very_bad <- very_bad
+    best_loo <- l
+    best_neither_morphotype_nor_tree <- neither_morphotype_nor_tree
+  } else if (very_bad == best_very_bad && l < best_loo) {
+    best_loo <- l
+    best_neither_morphotype_nor_tree <- neither_morphotype_nor_tree
+  }
+  print(k)
+}
 
 
 ## complete_hierarchy
@@ -187,7 +199,6 @@ complete_hierarchy <- stan(file="complete_hierarchy.stan",
                            chains=4,
                            iter=5000,
                            control = list(adapt_delta=0.99, max_treedepth=25))
-waic_complete_hierarchy <- waic(extract_log_lik(complete_hierarchy))
 
 
 ## no_hierarchy
@@ -219,7 +230,6 @@ no_hierarchy <- stan(file="no_hierarchy.stan",
                         chains=4,
                         iter=5000,
                         control = list(adapt_delta=0.99, max_treedepth=25))
-waic_no_hierarchy <- waic(extract_log_lik(no_hierarchy))
 
 
 
@@ -232,31 +242,12 @@ saveFit <- function(fit_obj, fit_name) {
   return(fit)
 }
 
-fit <- saveFit(tree_and_strain, "../stan_fits/tree_and_strain.rds")
+fit <- saveFit(morphotype_and_tree, "../stan_fits/morphotype_and_tree.rds")
 fit <- saveFit(tree_only, "../stan_fits/tree_only.rds")
-fit <- saveFit(strain_only, "../stan_fits/strain_only.rds")
-fit <- saveFit(no_tree_or_strain, "../stan_fits/no_tree_or_strain.rds")
+fit <- saveFit(morphotype_only, "../stan_fits/morphotype_only.rds")
+fit <- saveFit(neither_morphotype_nor_tree, "../stan_fits/neither_morphotype_nor_tree.rds")
 fit <- saveFit(complete_hierarchy, "../stan_fits/complete_hierarchy.rds")
 fit <- saveFit(no_hierarchy, "../stan_fits/no_hierarchy.rds")
-
-
-
-###
-xs <- seq(0,4,.001)
-df <- data.frame(x=xs,
-                 y1=dnorm(xs,prior_sigma_alpha[1],3*prior_sigma_alpha[1]),
-                 y2=dnorm(xs,prior_sigma_alpha[2],3*prior_sigma_alpha[2]))
-ggplot(df) +
-  geom_area(aes(x=x,y=y2),fill="#AA4400",alpha=.8) +
-  geom_line(aes(x=x,y=y2)) +
-  scale_x_continuous(expand=c(0,0),breaks = NULL) +
-  scale_y_continuous(limits=c(0,.25),expand=c(0,0),breaks = NULL) +
-  geom_segment(linetype="dashed",
-               aes(x=prior_sigma_alpha[2],y=0,
-                   xend=prior_sigma_alpha[2],
-                   yend=dnorm(prior_sigma_alpha[2],prior_sigma_alpha[2],3*prior_sigma_alpha[2]))) +
-  xlab("") +
-  ylab("")
 
 
 

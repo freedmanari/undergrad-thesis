@@ -1,5 +1,8 @@
 data {
   int<lower=1> N; // number of treatments
+  int<lower=1> I; // number of strains
+  
+  int<lower=1,upper=I> sid[N]; // strain indices
   
   int<lower=0> x[N];     // dose in ob
   int<lower=0> y[N];     // dependent variable, number of virus-killed
@@ -13,25 +16,27 @@ data {
 }
 
 parameters{
-  real raw_alpha;
-  real raw_beta;
+  real raw_alpha[I];
+  real raw_beta[I];
   
   real<lower=0> sigma_alpha;
   real<lower=0> sigma_beta;
 }
 
 transformed parameters {
-  real alpha;
-  real beta;
+  real alpha[I];
+  real beta[I];
   
   vector[N] theta; //predicted proportion virus-killed on logit scale
   vector[N] inv_logit_theta;
   
-  alpha = prior_mu_alpha + raw_alpha * sigma_alpha;
-  beta = prior_mu_beta + raw_beta * sigma_beta;
+  for(i in 1:I) {
+    alpha[i] = prior_mu_alpha + raw_alpha[i] * sigma_alpha;
+    beta[i] = prior_mu_beta + raw_beta[i] * sigma_beta;
+  }
 
   for(n in 1:N) {
-    theta[n] = alpha + beta * x[n];
+    theta[n] = alpha[sid[n]] + beta[sid[n]] * x[n];
   }
   
   inv_logit_theta = inv_logit(theta);

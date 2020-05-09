@@ -1,5 +1,3 @@
-# stan attempt (Sampling Through Adaptive Neighborhoods)
-
 library(rstan)
 library(tidyverse)
 library(shinystan)
@@ -11,18 +9,22 @@ library(pracma)
 ### load data
 SOK_data <- read.csv(file="SOK_reordered.csv",
                      header=TRUE, sep=",", stringsAsFactors=FALSE)
+SOK_data$strain <- factor(SOK_data$strain,levels=c("COL","CUB","LOV","LST","DRY","KLP","TAM","TMB"))
+SOK_data$capsid <- factor(SOK_data$capsid,levels=c("SNPV","MNPV"))
+SOK_data$tree_sp <- factor(SOK_data$tree_sp,levels=c("GR","DO"))
 y <- SOK_data$dose_response
 
 ### load fits
-tree_and_strain <- readRDS("../stan_fits/tree_and_strain.rds")
+morphotype_and_tree <- readRDS("../stan_fits/morphotype_and_tree.rds")
 tree_only <- readRDS("../stan_fits/tree_only.rds")
-strain_only <- readRDS("../stan_fits/strain_only.rds")
-no_tree_or_strain <- readRDS("../stan_fits/no_tree_or_strain.rds")
-pooled_means <- readRDS("../stan_fits/pooled_means.rds")
+morphotype_only <- readRDS("../stan_fits/morphotype_only.rds")
+neither_morphotype_nor_tree <- readRDS("../stan_fits/neither_morphotype_nor_tree.rds")
+complete_hierarchy <- readRDS("../stan_fits/complete_hierarchy.rds")
 no_hierarchy <- readRDS("../stan_fits/no_hierarchy.rds")
 
-bhms <- c(tree_and_strain,no_hierarchy,pooled_means,strain_only,tree_only,no_tree_or_strain)
-name <- c("B4","B5","B6","B2","B3","B1")
+bhms <- c(morphotype_and_tree,
+          tree_only,morphotype_only,neither_morphotype_nor_tree,no_hierarchy,complete_hierarchy)
+name <- c("M and T","T only","M only","neither M nor T","No hierarchy","Complete hierarchy")
 looic <- sapply(bhms,function(model) loo(model)$looic)
 delta_looic <- looic - min(looic)
 weight <- exp(-looic/2) / sum(exp(-looic/2))
@@ -31,7 +33,77 @@ lhood <- (p_looic-looic)/2
 looic_table <- data.frame(name,lhood,looic,delta_looic,weight,p_looic)
 
 
-fit_hier <- tree_and_strain
+fit_hier <- morphotype_and_tree
+
+### plot of best model
+
+factor_to_int <- function(factor, col_name) {
+  factors <- t(unique(SOK_data[col_name]))
+  dict <- as.list(1:length(factors))
+  names(dict) <- factors
+  return(dict[[factor]])
+}
+
+strain_factor_to_int = function(i) factor_to_int(i,"strain")
+tree_factor_to_int = function(i) factor_to_int(i,"tree_sp")
+
+estimates <- summary(fit_hier)$summary[,"mean"]
+alphas <- estimates[str_detect(names(estimates),pattern="^alpha")]
+betas <- estimates[str_detect(names(estimates),pattern="^beta")]
+
+doses <- seq(0,6500,100)
+B4_predictions <- data.frame(dose=numeric(16*length(doses)),
+                             strain=character(16*length(doses)),
+                             tree_sp=character(16*length(doses)),
+                             prediction=numeric(16*length(doses)),
+                             stringsAsFactors = FALSE)
+i <- 1
+for (s in unique(SOK_data[,"strain"])) {
+  s_int <- strain_factor_to_int(s)
+  for (t in unique(SOK_data[,"tree_sp"])) {
+    t_int <- tree_factor_to_int(t)
+    for (d in doses) {
+      B4_predictions[i,] <- list(dose=d,
+                                 strain=s,
+                                 tree_sp=t,
+                                 prediction = alphas[paste("alpha[",s_int,",",t_int,"]",sep="")] +
+                                              betas[paste("beta[",s_int,",",t_int,"]",sep="")] * d)
+      i <- i+1
+    }
+  }
+}
+
+B4_predictions$strain <- factor(B4_predictions$strain, levels = unique(SOK_data[,"strain"]))
+B4_predictions$tree_sp <- factor(B4_predictions$tree_sp, levels = unique(SOK_data[,"tree_sp"]))
+
+
+SOK_data_grouped_isolate <- SOK_data %>%
+  group_by(strain,density,tree_sp) %>%
+  summarise(total_virus=sum(total_virus) + .5 * (sum(total_virus)==0),
+            total_n=sum(total_n),
+            dose_response=logit(sum(total_virus)/sum(total_n)),
+            dose_response_lower=logit(binom.confint(total_virus,total_n,method="wilson")$lower),
+            dose_response_upper=logit(binom.confint(total_virus,total_n,method="wilson")$upper),
+            dose_var=mean(ob_count))
+
+ggplot(SOK_data_grouped_isolate) +
+  geom_point(aes(x=dose_var/1000,y=dose_response,color=tree_sp)) +
+  geom_errorbar(aes(x=dose_var/1000,ymin=dose_response_lower,ymax=dose_response_upper,
+                    color=tree_sp),width=.30) +
+  geom_line(data=B4_predictions,aes(x=dose/1000,y=prediction,color=tree_sp)) +
+  facet_wrap(~strain,nrow=2,scales="free_x") +
+  geom_hline(yintercept=0, linetype="dashed",size=.3) +
+  scale_x_continuous(limits=c(0,6.5),expand = c(0,0)) +
+  scale_y_continuous(breaks=c(-6,-4,-2,0,2,4,6),limits=c(-6.5,6),expand = c(0,0)) +
+  xlab("Dose (thousands of occlusion bodies)") + ylab("logit (Proportion virus-killed)") +
+  scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
+  theme(text=element_text(size=12,family="Palatino"),
+        strip.background = element_blank(),
+        panel.spacing= unit(1.5, "lines"),
+        plot.margin = margin(0,20,0,10))
+
+
+
 
 # pulling out the fits
 # NUTS (the No-U-Turn Sampler) optimizes HMC adaptively
@@ -150,10 +222,10 @@ waic_no_means <- waic(log_lik_no_means)
 
 
 # K-S tests
-sigma_alpha_SNPV <- c(sapply(1:4,function(i) tree_and_strain@sim$samples[[1]]$`sigma_alpha[1]`))
-sigma_alpha_MNPV <- c(sapply(1:4,function(i) tree_and_strain@sim$samples[[1]]$`sigma_alpha[2]`))
-sigma_beta_SNPV <- c(sapply(1:4,function(i) tree_and_strain@sim$samples[[1]]$`sigma_beta[1]`))
-sigma_beta_MNPV <- c(sapply(1:4,function(i) tree_and_strain@sim$samples[[1]]$`sigma_beta[2]`))
+sigma_alpha_SNPV <- c(sapply(1:4,function(i) morphotype_and_tree@sim$samples[[1]]$`sigma_alpha[1]`))
+sigma_alpha_MNPV <- c(sapply(1:4,function(i) morphotype_and_tree@sim$samples[[1]]$`sigma_alpha[2]`))
+sigma_beta_SNPV <- c(sapply(1:4,function(i) morphotype_and_tree@sim$samples[[1]]$`sigma_beta[1]`))
+sigma_beta_MNPV <- c(sapply(1:4,function(i) morphotype_and_tree@sim$samples[[1]]$`sigma_beta[2]`))
 
 ks.test(sigma_alpha_SNPV,sigma_alpha_MNPV,alternative="greater")
 ks.test(sigma_beta_SNPV,sigma_beta_MNPV,alternative="greater")

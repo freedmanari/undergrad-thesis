@@ -8,7 +8,6 @@ library(scales)
 library(ggpubr)
 theme_set(theme_pubr())
 SOK_data <- read.csv(file="SOK_reordered.csv",header=TRUE,sep=",")
-SOK_data_MNPV_first <- SOK_data
 SOK_data$strain <- factor(SOK_data$strain,levels=c("COL","CUB","LOV","LST","DRY","KLP","TAM","TMB"))
 SOK_data$capsid <- factor(SOK_data$capsid,levels=c("SNPV","MNPV"))
 SOK_data$tree_sp <- factor(SOK_data$tree_sp,levels=c("GR","DO"))
@@ -82,8 +81,8 @@ ggplot(data = grouped) +
   geom_point(aes(x=capsid,y=y,color=tree_sp)) +
   geom_errorbar(width=.25,
                 aes(x=capsid,ymin=ymin,ymax=ymax,color=tree_sp))+
-  scale_y_continuous(limits = c(0,.8),expand = c(0,0)) +
-  scale_color_discrete(name = "Tree",labels = c("GF", "DF")) +
+  scale_y_continuous(limits = c(0,1),expand = c(0,0)) +
+  scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
   xlab("Morphotype") +
   ylab("Proportion virus-killed") +
   theme(text=element_text(size=12,family="Palatino"))
@@ -148,7 +147,7 @@ rownames(aicc_table) <- c()
 
 ## graph of best model
 #alpha+beta1*D+beta2*M+beta3*T+beta4*D*M+beta5*T*M
-doses <- seq(0,6000,1)
+doses <- seq(0,6500,1)
 A13_predictions <- data.frame(dose=numeric(4*length(doses)),
                               capsid=character(4*length(doses)),
                               tree_sp=character(4*length(doses)),
@@ -163,12 +162,12 @@ for (c in c("SNPV","MNPV")) {
       A13_predictions[i,] <- list(dose=d,
                                   capsid=c,
                                   tree_sp=t,
-                                  prediction=inv.logit(coef(A13)[["(Intercept)"]] +
-                                                       coef(A13)[["dose_var"]]*d +
-                                                       coef(A13)[["capsidMNPV"]]*c_int +
-                                                       coef(A13)[["tree_spDO"]]*t_int +
-                                                       coef(A13)[["dose_var:capsidMNPV"]]*d*c_int +
-                                                       coef(A13)[["capsidMNPV:tree_spDO"]]*t_int*c_int))
+                                  prediction=coef(A13)[["(Intercept)"]] +
+                                             coef(A13)[["dose_var"]]*d +
+                                             coef(A13)[["capsidMNPV"]]*c_int +
+                                             coef(A13)[["tree_spDO"]]*t_int +
+                                             coef(A13)[["dose_var:capsidMNPV"]]*d*c_int +
+                                             coef(A13)[["capsidMNPV:tree_spDO"]]*t_int*c_int)
       i <- i+1
     }
   }
@@ -177,18 +176,13 @@ for (c in c("SNPV","MNPV")) {
 A13_predictions$capsid <- factor(A13_predictions$capsid, levels = c("SNPV","MNPV"))
 A13_predictions$tree_sp <- factor(A13_predictions$tree_sp, levels = c("GR","DO"))
 
-ggplot() +
-  geom_line(data = A13_predictions, aes(x=dose, y=prediction, color=tree_sp)) +
-  geom_point(data = SOK_data, aes(x=dose_var,y=dose_response, color=tree_sp)) +
-  facet_wrap(~capsid) + xlab("Dose (µL virus)") + ylab("Proportion virus-killed")
-
 SOK_data_grouped <- SOK_data %>%
                     group_by(capsid,density,tree_sp) %>%
                     summarise(total_virus=sum(total_virus),
                               total_n=sum(total_n),
-                              dose_response=sum(total_virus)/sum(total_n),
-                              dose_response_lower=binom.confint(total_virus,total_n,method="wilson")$lower,
-                              dose_response_upper=binom.confint(total_virus,total_n,method="wilson")$upper,
+                              dose_response=logit(sum(total_virus)/sum(total_n)),
+                              dose_response_lower=logit(binom.confint(total_virus,total_n,method="wilson")$lower),
+                              dose_response_upper=logit(binom.confint(total_virus,total_n,method="wilson")$upper),
                               dose_var=mean(ob_count),
                               dose_lower=mean_cl_normal(ob_count)$ymin,
                               dose_upper=mean_cl_normal(ob_count)$ymax)
@@ -198,13 +192,16 @@ ggplot() +
   geom_line(data = A13_predictions, aes(x=dose/1000, y=prediction, color=tree_sp)) +
   geom_point(data = SOK_data_grouped, aes(x=dose_var/1000,y=dose_response, color=tree_sp)) +
   geom_errorbar(data=SOK_data_grouped,
-                width=.15,
+                width=.2,
                 aes(x=dose_var/1000,ymin=dose_response_lower,ymax=dose_response_upper,color=tree_sp))+
   geom_errorbarh(data=SOK_data_grouped,
-                 width=.02,aes(y=dose_response,xmin=dose_lower/1000,xmax=dose_upper/1000,color=tree_sp))+
-  facet_wrap(~capsid) + xlab("Dose (thousands of occlusion bodies)") + ylab("Proportion virus-killed") +
-  scale_x_continuous(limits = c(0,6),expand = c(0,0)) +
-  scale_y_continuous(limits = c(0,1),expand = c(0,0)) +
+                 width=.1,aes(y=dose_response,xmin=dose_lower/1000,xmax=dose_upper/1000,color=tree_sp))+
+  facet_wrap(~capsid) +
+  geom_hline(yintercept=0, linetype="dashed") +
+  xlab("Dose (thousands of occlusion bodies)") +
+  ylab("logit (Proportion virus-killed)") +
+  scale_x_continuous(limits = c(0,6.5),expand = c(0,0)) +
+  scale_y_continuous(limits = c(-3.3,2),expand = c(0,0)) +
   scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
   theme(text=element_text(size=12,family="Palatino"),
         strip.background = element_blank(),
@@ -241,7 +238,7 @@ ggplot(data = SOK_data_grouped_isolate) +
                 aes(x=dose_var/1000,ymin=dose_response_lower,ymax=dose_response_upper,color=tree_sp))+
   geom_line() + geom_point() +
   scale_color_discrete(name = "Tree",labels = c("Grand fir", "Douglas fir")) +
-  scale_x_continuous(limits=c(0,6),expand = c(0,0)) +
+  scale_x_continuous(limits=c(0,6.5),expand = c(0,0)) +
   scale_y_continuous(limits = c(0,1),expand = c(0,0)) +
   xlab("Dose (thousands of occlusion bodies)") + ylab("Proportion virus-killed") +
   theme(text=element_text(size=12,family="Palatino"),
